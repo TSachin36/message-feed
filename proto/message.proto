@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package message;
+
+option go_package = "./proto";
+
+message Message {
+    string userID = 1;
+    string text = 2;
+}
+
+message Empty {}
+
+message UserRequest {
+    string userID = 1;
+}
+
+message MessageList {
+    repeated Message messages = 1;
+}
+
+service MessageStore {
+    rpc Save(Message) returns (Empty);
+    rpc GetLast10(UserRequest) returns (MessageList);
+}

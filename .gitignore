@@ -1,0 +1,26 @@
+# Go build output
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go test output
+*.test
+*.out
+
+# Coverage
+coverage.out
+
+# Profiling
+*.prof
+cpu.prof
+mem.prof
+
+# IDE / editor
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db

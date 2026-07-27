@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Last 10 Messages</title>
+</head>
+
+<body>
+
+<h1>Last 10 Messages</h1>
+
+<ul>
+
+{{range .}}
+
+<li>
+<strong>{{.UserID}}</strong>: {{.Text}}
+</li>
+
+{{end}}
+
+</ul>
+
+</body>
+
+</html>
