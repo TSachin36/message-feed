@@ -10,7 +10,10 @@ import (
 
 func main() {
 
-	go store.Run()
+	store.Run(
+		":50051",
+		"data/messages.txt",
+	)
 
 	api.Start()
 

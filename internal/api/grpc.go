@@ -9,22 +9,53 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-var grpcConn *grpc.ClientConn
-var grpcClient pb.MessageStoreClient
+var grpcConnections = make(
+	map[string]*grpc.ClientConn,
+)
+
+var grpcClients = make(
+	map[string]pb.MessageStoreClient,
+)
 
 func connectGRPC() {
 
-	var err error
+	buildHashRing()
 
-	grpcConn, err = grpc.Dial(
-		"localhost:50051",
-		grpc.WithTransportCredentials(
-			insecure.NewCredentials(),
-		),
-	)
-	if err != nil {
-		log.Fatal(err)
+	for _, address := range shardAddresses {
+
+		conn, err := grpc.Dial(
+			address,
+			grpc.WithTransportCredentials(
+				insecure.NewCredentials(),
+			),
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		grpcConnections[address] = conn
+
+		grpcClients[address] =
+			pb.NewMessageStoreClient(conn)
+
+		logger.Info(
+			"Connected to shard",
+			"address", address,
+		)
 	}
+}
 
-	grpcClient = pb.NewMessageStoreClient(grpcConn)
+func closeGRPC() {
+
+	for address, conn := range grpcConnections {
+
+		if err := conn.Close(); err != nil {
+
+			logger.Error(
+				"Failed to close shard connection",
+				"address", address,
+				"error", err,
+			)
+		}
+	}
 }

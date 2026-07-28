@@ -17,6 +17,7 @@ type server struct {
 }
 
 var grpcServer *grpc.Server
+var dataFile string
 
 // gRPC requires this receiver method.
 // It delegates the real work to the package-level save function.
@@ -48,7 +49,7 @@ func save(
 
 	err := storage.SaveMessage(
 		ctx,
-		"data/messages.txt",
+		dataFile,
 		msg,
 	)
 	if err != nil {
@@ -65,7 +66,7 @@ func getLast10(
 
 	messages, err := storage.GetLast10MessagesForUser(
 		ctx,
-		"data/messages.txt",
+		dataFile,
 		req.UserID,
 	)
 	if err != nil {
@@ -89,14 +90,23 @@ func getLast10(
 	}, nil
 }
 
-func Run() {
+func Run(
+	address string,
+	filename string,
+) {
+
+	dataFile = filename
 
 	lis, err := net.Listen(
 		"tcp",
-		":50051",
+		address,
 	)
 	if err != nil {
-		log.Printf("Failed to start gRPC store: %v", err)
+		log.Printf(
+			"Failed to start gRPC store on %s: %v",
+			address,
+			err,
+		)
 		return
 	}
 
@@ -107,10 +117,17 @@ func Run() {
 		&server{},
 	)
 
-	log.Println("gRPC Store Server running on :50051")
+	log.Printf(
+		"gRPC Store Server running on %s using %s",
+		address,
+		filename,
+	)
 
 	if err := grpcServer.Serve(lis); err != nil {
-		log.Printf("gRPC store stopped: %v", err)
+		log.Printf(
+			"gRPC store stopped: %v",
+			err,
+		)
 	}
 }
 

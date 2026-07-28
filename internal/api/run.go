@@ -6,7 +6,5 @@ func Run() {
 
 	waitForShutdown(httpServer)
 
-	if grpcConn != nil {
-		grpcConn.Close()
-	}
+	closeGRPC()
 }

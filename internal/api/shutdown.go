@@ -61,9 +61,7 @@ func Shutdown() {
 		return
 	}
 
-	if grpcConn != nil {
-		grpcConn.Close()
-	}
+	closeGRPC()
 
 	logger.Info("HTTP server stopped gracefully")
 }
