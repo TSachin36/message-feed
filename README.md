@@ -1,247 +1,262 @@
 # Message Feed
 
-A Go application that demonstrates file storage, HTTP APIs, WebSockets, gRPC, structured logging, middleware, templates, concurrency using the Actor/CSP pattern, and graceful shutdown.
-
----
-
-## Project Structure
-
-```
-message-feed/
-│
-├── cmd/
-│   ├── cli/          # Command-line application
-│   ├── server/       # HTTP + WebSocket server
-│   ├── store/        # gRPC storage service
-│   └── client/       # WebSocket client
-│
-├── internal/
-│   ├── models/
-│   └── storage/
-│
-├── proto/
-│   ├── message.proto
-│   ├── message.pb.go
-│   └── message_grpc.pb.go
-│
-├── templates/
-│   └── messages.html
-│
-├── web/
-│   └── about/
-│
-└── data/
-    └── messages.txt
-```
-
----
+A Go message-feed application demonstrating file storage, HTTP APIs, WebSockets, gRPC, structured logging, concurrency, benchmarking, profiling, and consistent-hash sharding.
 
 ## Features
 
-- CLI application
-- File-based message storage
-- Structured logging using `log/slog`
-- Context propagation with Trace IDs
-- Unit tests
-- Parallel tests
-- Graceful shutdown
-- HTTP REST API
-- Middleware
-- Static web page
-- Dynamic HTML template
-- WebSocket support
-- WebSocket client
+- CLI and interactive CRUD REPL
+- Multi-user message storage
+- `log/slog` structured logging and Trace IDs
+- HTTP API using `net/http`
+- Static pages and HTML templates
+- WebSocket live subscriptions
 - gRPC storage service
-- Actor/CSP pattern for concurrent WebSocket broadcasting
-
----
+- Actor/CSP concurrency
+- Graceful shutdown
+- Unit, parallel, and benchmark tests
+- HTTP load testing
+- pprof profiling
+- Consistent hashing with virtual nodes
+- Multiple gRPC storage backends
 
 ## Architecture
 
+```text
+                    Clients
+               HTTP / WebSocket
+                      |
+                      v
+                API Server :8080
+                      |
+                hash(userID)
+                      |
+              Consistent Hash Ring
+                100 virtual nodes
+                      |
+          +-----------+-----------+
+          |           |           |
+          v           v           v
+      gRPC :50051 gRPC :50052 gRPC :50053
+          |           |           |
+          v           v           v
+      shard1.txt  shard2.txt  shard3.txt
 ```
-                HTTP POST
-                     │
-                     ▼
-             HTTP Server (:8080)
-                     │
-                     │ gRPC
-                     ▼
-          gRPC Store Server (:50051)
-                     │
-                     ▼
-             data/messages.txt
 
-                     ▲
-                     │
-          WebSocket Clients (/ws)
+The frontend routes each user to a storage backend using consistent hashing. Messages are persisted through gRPC and then distributed to live subscribers using the Actor/CSP pattern.
+
+## Project Structure
+
+```text
+cmd/
+  all/        Combined startup
+  api/        HTTP/WebSocket frontend
+  cli/        CLI
+  client/     WebSocket client
+  loadtest/   Load tester
+  repl/       CRUD REPL
+  store/      gRPC storage backend
+
+internal/
+  api/        HTTP, WebSocket and sharding logic
+  models/     Data models
+  storage/    File storage
+  store/      gRPC service
+
+proto/        Protocol Buffer definitions/generated code
+templates/    HTML templates
+web/          Static content
+data/         Runtime data
 ```
 
----
+## CLI
 
-# Requirements
-
-- Go 1.24+
-- Protocol Buffers (`protoc`)
-- gorilla/websocket
-- google.golang.org/grpc
-
----
-
-# Install Dependencies
+Save a message and display the last 10 messages:
 
 ```bash
-go mod tidy
+go run ./cmd/cli -user="alice" -message="Hello from CLI"
 ```
 
----
+The CLI remains running until `Ctrl+C`.
 
-# Generate gRPC Code
+## REPL
 
 ```bash
-protoc --go_out=. --go-grpc_out=. proto/message.proto
+go run ./cmd/repl
 ```
 
----
+Commands:
 
-# Running the Application
+```text
+create <user> <message>
+list
+update <number> <user> <message>
+delete <number>
+help
+exit
+```
 
-Open **three terminals**.
+## Running the Sharded Application
 
-## Terminal 1
-
-Start the gRPC Store.
+Start three storage backends in separate terminals:
 
 ```bash
-go run ./cmd/store
+go run ./cmd/store "-port=50051" "-data=data/shard1.txt"
+go run ./cmd/store "-port=50052" "-data=data/shard2.txt"
+go run ./cmd/store "-port=50053" "-data=data/shard3.txt"
 ```
 
-Expected output:
-
-```
-gRPC Store Server running on :50051
-```
-
----
-
-## Terminal 2
-
-Start the HTTP Server.
+Then start the frontend:
 
 ```bash
-go run ./cmd/server
+go run ./cmd/api
 ```
 
-Expected output:
+The API runs on port `8080` and pprof on port `6060`.
 
+## HTTP API
+
+Create a message:
+
+```text
+POST /messages
 ```
-Server started
-address=:8080
+
+PowerShell example:
+
+```powershell
+Invoke-RestMethod `
+    -Method Post `
+    -Uri "http://localhost:8080/messages" `
+    -ContentType "application/json" `
+    -Body '{"user":"alice","text":"Hello"}'
 ```
 
----
+Retrieve a user's messages:
 
-## Terminal 3
+```text
+GET /messages?user=alice
+```
 
-Start the WebSocket Client.
+```powershell
+Invoke-RestMethod `
+    -Method Get `
+    -Uri "http://localhost:8080/messages?user=alice"
+```
+
+## Web Pages
+
+Static page:
+
+```text
+http://localhost:8080/about/
+```
+
+Dynamic user message page:
+
+```text
+http://localhost:8080/list?user=alice
+```
+
+The `user` parameter is required for `/list`.
+
+## WebSockets
+
+The WebSocket endpoint provides live message updates to subscribers.
+
+```text
+ws://localhost:8080/ws?user=alice
+```
+
+Run the client with:
 
 ```bash
 go run ./cmd/client
 ```
 
-Expected output:
+The server sends recent messages and keeps the connection open for new messages.
 
+## gRPC
+
+The storage service defines:
+
+```text
+Save
+GetLast10
 ```
-Connected to server
 
-Messages received:
+Storage runs independently from the HTTP frontend, allowing multiple backend instances.
 
-Sachin: Hello
-Alice: Testing
-...
+## Actor / CSP Concurrency
+
+WebSocket clients are coordinated using channels:
+
+```text
+register
+unregister
+broadcast
 ```
 
----
+A dedicated actor goroutine owns the client state, avoiding concurrent mutation of the client map.
 
-# Using the HTTP API
+Messages are broadcast after they are successfully persisted.
 
-## Get Messages
+## Consistent Hash Sharding
 
+Users are routed to storage backends using CRC32 consistent hashing.
+
+Each physical backend has **100 virtual nodes**, giving three backends 300 positions on the hash ring.
+
+A 10,000-user distribution test produced:
+
+```text
+localhost:50051 -> 4070
+localhost:50052 -> 3205
+localhost:50053 -> 2725
 ```
-GET /messages
+
+Adding a fourth shard moved:
+
+```text
+2615 / 10000 users (26.15%)
 ```
+
+Removing `localhost:50052` moved exactly the 3205 users previously assigned to it, while users on unaffected shards remained in place.
+
+The ring handles routing only; automatic migration of historical data between shards is not implemented.
+
+## Logging and Trace IDs
+
+The application uses `log/slog` for structured logging and `context.Context` for Trace ID propagation.
 
 Example:
 
-```bash
-curl http://localhost:8080/messages
+```text
+INFO Message Saved traceID=TEST-456 user=alice message="Hello"
 ```
 
----
+## Graceful Shutdown
 
-## Save Message
+Interrupt signals are handled using `os/signal`.
 
-```
-POST /messages
-```
+The HTTP server uses `http.Server.Shutdown` to stop accepting new requests while allowing active requests to finish.
 
-Example:
+The gRPC store also supports graceful shutdown.
 
-```bash
-curl -X POST http://localhost:8080/messages \
--H "Content-Type: application/json" \
--d "{\"userID\":\"Sachin\",\"text\":\"Hello from HTTP\"}"
-```
+## Published Core Module
 
-Response:
+The reusable Actor/CSP logic is published as:
 
-```json
-{
-    "userID":"Sachin",
-    "text":"Hello from HTTP"
-}
+```text
+github.com/TSachin36/message-feed-core
 ```
 
----
+Version:
 
-# Web Pages
-
-## Static Page
-
-```
-http://localhost:8080/about/
+```text
+v1.0.0
 ```
 
-Served using `http.FileServer`.
-
----
-
-## Dynamic Page
-
-```
-http://localhost:8080/list
-```
-
-Displays the latest 10 messages using Go HTML templates.
-
----
-
-# WebSocket
-
-Endpoint:
-
-```
-ws://localhost:8080/ws
-```
-
-When a client connects it:
-
-1. Receives the last 10 stored messages.
-2. Remains connected.
-3. Receives new messages in real time as they are posted.
-
----
-
-# Running Tests
+## Testing
 
 Run all tests:
 
@@ -249,78 +264,98 @@ Run all tests:
 go test ./...
 ```
 
-Run with verbose output:
+The project includes unit tests, parallel concurrency tests, and consistent-hashing tests.
+
+Final validation:
 
 ```bash
-go test -v ./...
+go test ./...
+go vet ./...
+go build ./...
 ```
 
----
+## Benchmarks
 
-# Technologies Used
+Run storage benchmarks:
 
-- Go
-- gRPC
-- Protocol Buffers
-- Gorilla WebSocket
-- net/http
-- html/template
-- log/slog
-- Context
-- Channels
-- Goroutines
-
----
-
-# Concurrency Model
-
-The server uses the Actor / CSP pattern.
-
-Three channels coordinate all WebSocket activity:
-
-- `register`
-- `unregister`
-- `broadcast`
-
-A dedicated goroutine owns the client map, ensuring concurrent safety without mutexes.
-
-```
-HTTP POST
-     │
-     ▼
-broadcast channel
-     │
-     ▼
-Actor Goroutine
-     │
-     ├── Client 1
-     ├── Client 2
-     ├── Client 3
-     └── Client N
+```bash
+go test ./internal/storage -bench=. -benchmem
 ```
 
----
+Benchmarks cover message saving and retrieving the last 10 messages for a user.
 
-# Project Goals Completed
+## Load Testing
 
-- CLI application
-- File storage
-- Structured logging
-- Context propagation
-- Unit testing
-- Graceful shutdown
-- HTTP API
-- Middleware
-- Static web pages
-- HTML templates
-- WebSockets
-- WebSocket client
-- gRPC service
-- Protocol Buffers
+Run the HTTP load tester:
+
+```bash
+go run ./cmd/loadtest
+```
+
+Example result:
+
+```text
+Requests:     1000
+Concurrency:  20
+Successful:   1000
+Failed:       0
+Requests/sec: 2734.77
+```
+
+## pprof
+
+Profiling is available at:
+
+```text
+http://localhost:6060/debug/pprof/
+```
+
+CPU profile:
+
+```bash
+go tool pprof "http://localhost:6060/debug/pprof/profile?seconds=15"
+```
+
+Allocation profile:
+
+```bash
+go tool pprof "http://localhost:6060/debug/pprof/allocs"
+```
+
+## Runtime Data
+
+Shard files are generated at runtime and ignored by Git:
+
+```gitignore
+data/shard*.txt
+```
+
+## Assignment Coverage
+
+The project covers the required progression:
+
+- CLI and file storage
+- Structured logging and Trace IDs
+- Unit and parallel tests
+- Signal handling and graceful shutdown
+- HTTP API and middleware
+- Static and dynamic web pages
+- WebSockets and client
+- Protocol Buffers and gRPC
 - Actor/CSP concurrency
+- CRUD REPL
+- Multiple startup modes
+- Multi-user support
+- Published reusable module
+- Benchmarks and load testing
+- pprof profiling
+- Frontend/backend separation
+- Consistent-hash sharding with virtual nodes
 
----
+## Technologies
 
-# Author
+Go, `net/http`, `html/template`, `log/slog`, `context`, goroutines, channels, gRPC, Protocol Buffers, Gorilla WebSocket, pprof, and consistent hashing.
+
+## Author
 
 Sachin
