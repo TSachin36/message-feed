@@ -12,7 +12,7 @@ import (
 func main() {
 
 	conn, _, err := websocket.DefaultDialer.Dial(
-		"ws://localhost:8080/ws",
+		"ws://localhost:8080/ws?user=alice",
 		nil,
 	)
 	if err != nil {
@@ -34,6 +34,28 @@ func main() {
 	for _, msg := range messages {
 		fmt.Printf(
 			"%s: %s\n",
+			msg.UserID,
+			msg.Text,
+		)
+	}
+
+	fmt.Println("\nWaiting for new messages...")
+
+	for {
+
+		var msg models.Message
+
+		err = conn.ReadJSON(&msg)
+		if err != nil {
+			log.Println(
+				"Connection closed:",
+				err,
+			)
+			return
+		}
+
+		fmt.Printf(
+			"New message -> %s: %s\n",
 			msg.UserID,
 			msg.Text,
 		)

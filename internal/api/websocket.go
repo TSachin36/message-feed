@@ -2,6 +2,8 @@ package api
 
 import (
 	"net/http"
+
+	coreactor "github.com/TSachin36/message-feed-core/actor"
 )
 
 func websocketHandler(w http.ResponseWriter, r *http.Request) {
@@ -64,15 +66,12 @@ func websocketHandler(w http.ResponseWriter, r *http.Request) {
 		"user", userID,
 	)
 
-	register <- client{
-		conn:   conn,
-		userID: userID,
-	}
+	coreactor.Register(conn, userID)
 
 	for {
 		if _, _, err := conn.ReadMessage(); err != nil {
 
-			unregister <- conn
+			coreactor.Unregister(conn)
 
 			break
 		}

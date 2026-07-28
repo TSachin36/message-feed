@@ -15,3 +15,4 @@ Sachin: Testing gRPC
 Sachin: Hello from service helper!
 alice: Alice message
 bob: Bob message
+alice: Testing published actor V1

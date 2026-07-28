@@ -6,6 +6,8 @@ import (
 	"message-feed/internal/models"
 	pb "message-feed/proto"
 	"net/http"
+
+	coreactor "github.com/TSachin36/message-feed-core/actor"
 )
 
 func toModels(pbMessages []*pb.Message) []models.Message {
@@ -100,7 +102,10 @@ func messagesHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		broadcast <- msg
+		coreactor.Broadcast(
+			msg.UserID,
+			msg.Text,
+		)
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
