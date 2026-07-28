@@ -24,3 +24,6 @@ mem.prof
 # OS files
 .DS_Store
 Thumbs.db
+
+# Runtime shard data
+data/shard*.txt
