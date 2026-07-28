@@ -10,6 +10,8 @@ func Start() {
 
 	connectGRPC()
 
+	startPprof()
+
 	mux := routes()
 
 	go actor()
