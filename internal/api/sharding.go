@@ -1,9 +1,12 @@
 package api
 
 import (
+	"fmt"
 	"hash/crc32"
 	"sort"
 )
+
+const virtualNodesPerShard = 100
 
 var shardAddresses = []string{
 	"localhost:50051",
@@ -21,16 +24,25 @@ func buildHashRing() {
 
 	for _, address := range shardAddresses {
 
-		hash := crc32.ChecksumIEEE(
-			[]byte(address),
-		)
+		for vnode := 0; vnode < virtualNodesPerShard; vnode++ {
 
-		hashRing = append(
-			hashRing,
-			hash,
-		)
+			virtualNodeKey := fmt.Sprintf(
+				"%s#%d",
+				address,
+				vnode,
+			)
 
-		hashRingNodes[hash] = address
+			hash := crc32.ChecksumIEEE(
+				[]byte(virtualNodeKey),
+			)
+
+			hashRing = append(
+				hashRing,
+				hash,
+			)
+
+			hashRingNodes[hash] = address
+		}
 	}
 
 	sort.Slice(
